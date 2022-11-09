@@ -62,35 +62,35 @@ object MessageService {
     }
 
     fun statisticOfChat() {
-        for (us in user) {
-            if (!us.value.isDelete) {
-                val totalMessage: Int = message.filter { it.value.userId == us.key }.size
-                val unreadMessage: Int = message.filter { it.value.userId == us.key && !it.value.isRead }.size
-                println("chat with ${us.value.userName} messages $totalMessage from them $unreadMessage are not read")
+        val userNotDelete = user.filter { !it.value.isDelete }
+            .map { it.key }
+        message.filter { userNotDelete.contains(it.value.userId) }
+            .filter { !it.value.isDelete }
+            .values.groupBy { it.userId }
+            .forEach {
+                println(
+                    "chat with ${user[it.key]?.userName} " +
+                            "total messages ${it.value.size} " +
+                            "from them ${it.value.fold(0) { acc, element -> if (!element.isRead) acc + 1 else acc }} are not read "
+                )
             }
-        }
     }
 
-    fun listOfChat() {
-        for (us in user) {
-            if (!us.value.isDelete) {
-                println("chat with ${us.value.userName}")
-                println("Last Message: ${message.filter { it.value.userId == us.key && !it.value.isDelete }.values.last().messageText}")
-            }
-        }
-    }
+    fun listOfChat(): String = message.asSequence()
+        .filter { !user[it.value.userId]?.isDelete!! && !it.value.isDelete && !it.value.isRead }
+        .groupBy { it.value.userId }
+        .values.joinToString(separator = "\n") { "chat with ${user[it.last().value.userId]?.userName} \nlast message: ${it.last().value.messageText}" }
+
 
     fun listOfChatId(userId: Int) {
-        val messageFilterUser = message.filter { it.value.userId == userId }
-        val messageNotRead = messageFilterUser.filter { !it.value.isRead }
-        if (messageNotRead.isNotEmpty()) {
-            println("Chat with ${user[userId]?.userName}")
-            println("${messageNotRead.size} new messages")
-            println("${messageNotRead.keys.first()} id of first not read message ")
-            for (mes in messageNotRead)
-                mes.value.isRead = true
-        } else
-            println("There are no new messages in this chat")
+        if (user.findIndex(userId)) {
+            println(
+                "Chat with ${user[userId]?.userName} \n${message.filter { it.value.userId == userId && !it.value.isRead }.size} new messages" +
+                        "\n${message.filter { it.value.userId == userId && it.value.isRead }.keys.lastOrNull() ?: "Not available "}id is last read message"
+            )
+            message.filter { it.value.userId == userId }
+                .forEach { it.value.isRead = true }
+        }
     }
 
     fun getUser(): MutableMap<Int, User> {
@@ -122,13 +122,13 @@ fun main() {
     MessageService.addMessage(Messages(2, "Hi, how are you?", true))
     MessageService.getUser()
     MessageService.getMessage()
-    MessageService.deleteMessage(1)
+    //MessageService.deleteMessage(1)
     MessageService.readMessage(4)
     MessageService.editMessage(5, "Sorry mistake")
     MessageService.editMessage(1, "mistake")
     println()
     println("Последние сообщения по чатам")
-    MessageService.listOfChat()
+    println(MessageService.listOfChat())
     println()
     println("Статистика по сообщениям")
     MessageService.statisticOfChat()
@@ -140,12 +140,12 @@ fun main() {
     println()
     println("Удаление чата 1")
     MessageService.deleteChat(1)
-    MessageService.listOfChat()
+    println(MessageService.listOfChat())
     println()
     println("Удаление всех сообщений приводит к удалению чата")
     MessageService.deleteMessage(3)
     MessageService.deleteMessage(6)
-    MessageService.listOfChat()
+    println(MessageService.listOfChat())
     MessageService.statisticOfChat()
 
 }
